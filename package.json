@@ -1,0 +1,51 @@
+{
+  "name": "trading-journal",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "calendar:seed": "npx tsx --env-file=.env src/scripts/seedHistoricalCalendar.ts data/forex-factory.csv",
+    "calendar:gap": "npx tsx --env-file=.env src/scripts/seedMissingMonths.ts",
+    "calendar:sync": "npx tsx --env-file=.env src/scripts/runForwardSync.ts",
+    "calendar:backfill-descriptions": "npx tsx --env-file=.env src/scripts/backfillDescriptions.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.100.10",
+    "@trpc/client": "^11.17.0",
+    "@trpc/next": "^11.17.0",
+    "@trpc/react-query": "^11.17.0",
+    "@trpc/server": "^11.17.0",
+    "@types/pg": "^8.20.0",
+    "cheerio": "^1.2.0",
+    "csv-parse": "^6.2.1",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
+    "next": "16.2.6",
+    "pg": "^8.20.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "superjson": "^2.2.6",
+    "undici": "^8.2.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20.19.41",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}
