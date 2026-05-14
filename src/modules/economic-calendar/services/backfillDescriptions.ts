@@ -3,10 +3,8 @@
 import { db } from '@/db';
 import { economicEvents } from '../db';
 import { isNull, and, eq, or } from 'drizzle-orm';
-import {
-    fetchEventDescription,
-    detectEventType,
-} from './fetchEventDescription';
+import { fetchEventDescription } from './fetchEventDescription';
+import { detectEventType } from '../utils/eventDescriptions';
 
 const sleep = (ms: number) =>
     new Promise(resolve => setTimeout(resolve, ms));

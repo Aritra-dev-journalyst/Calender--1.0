@@ -1,4 +1,4 @@
-import { getStaticEventDescription } from './src/modules/economic-calendar/utils/eventDescriptions';
+import { getStaticEventDescription } from '@/modules/economic-calendar/utils/eventDescriptions';
 
 const testTitles = [
     "Natural Gas Storage",
