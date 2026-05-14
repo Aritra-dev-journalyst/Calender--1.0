@@ -5,6 +5,8 @@ import { economicEvents } from '@/modules/economic-calendar/db/economicEvents.sc
 import { and, gte, lte, asc, eq } from 'drizzle-orm';
 import { startOfDay, endOfDay, addDays } from 'date-fns';
 import { fetchEventDetail } from '@/modules/economic-calendar/ingestion/live/fetchEventDetail';
+export const dynamic = 'force-dynamic';
+
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -16,7 +18,7 @@ export async function GET(request: Request) {
 
   try {
     console.log(`[API] Fetching calendar events from ${start.toISOString()} to ${end.toISOString()}`);
-    
+
     const events = await db.select()
       .from(economicEvents)
       .where(
@@ -39,7 +41,7 @@ export async function GET(request: Request) {
         try {
           console.log(`[API] Lazy fetching real details for "${event.title}" (${event.ffEventId})`);
           const realDetail = await fetchEventDetail(event.ffEventId);
-          
+
           if (realDetail) {
             // Update the DB asynchronously so next time it's instant
             db.update(economicEvents)
