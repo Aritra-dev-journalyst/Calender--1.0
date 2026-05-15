@@ -15,6 +15,13 @@
       "when": 1778741460992,
       "tag": "0001_dazzling_prowler",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778841670682,
+      "tag": "0002_dear_black_cat",
+      "breakpoints": true
     }
   ]
 }

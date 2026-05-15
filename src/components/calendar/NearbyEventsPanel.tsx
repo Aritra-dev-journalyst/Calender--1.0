@@ -12,6 +12,7 @@ interface EconomicEvent {
   impact: string;
   startsAtUtc: string | Date;
   actual: string | null;
+  isPredicted?: boolean;
 }
 
 interface NearbyEventsPanelProps {
@@ -42,6 +43,11 @@ export const NearbyEventsPanel: React.FC<NearbyEventsPanelProps> = ({ events, ti
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-zinc-900 dark:text-zinc-50">{event.currency}</span>
                     <EventBadge impact={event.impact} className="scale-75 origin-left" />
+                    {event.isPredicted && (
+                      <span className="px-1 py-0.5 rounded-[4px] text-[8px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 uppercase tracking-tighter">
+                        PREDICTED
+                      </span>
+                    )}
                   </div>
                   <div className="text-[11px] text-zinc-500 truncate max-w-[150px]">{event.title}</div>
                 </div>
@@ -50,7 +56,9 @@ export const NearbyEventsPanel: React.FC<NearbyEventsPanelProps> = ({ events, ti
                 {event.actual ? (
                   <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{event.actual}</span>
                 ) : (
-                  <span className="text-[10px] font-medium text-zinc-400">WAITING</span>
+                  <span className="text-[10px] font-medium text-zinc-400">
+                    {event.isPredicted ? 'EXPECTED' : 'WAITING'}
+                  </span>
                 )}
               </div>
             </div>
