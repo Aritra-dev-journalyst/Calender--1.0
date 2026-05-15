@@ -29,7 +29,7 @@ export const EventBadge: React.FC<EventBadgeProps> = ({ impact, className = '' }
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${getStyles(impact)} ${className}`}>
       <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current" />
-      {impact || 'None'}
+      {impact ? impact.charAt(0).toUpperCase() + impact.slice(1) : 'None'}
     </span>
   );
 };

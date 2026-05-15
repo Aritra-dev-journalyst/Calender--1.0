@@ -13,6 +13,7 @@ interface EconomicEvent {
   startsAtUtc: string | Date;
   forecast: string | null;
   previous: string | null;
+  isPredicted?: boolean;
 }
 
 interface UpcomingEventsCardProps {
@@ -29,6 +30,11 @@ export const UpcomingEventsCard: React.FC<UpcomingEventsCardProps> = ({ event })
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{event.currency}</span>
             <EventBadge impact={event.impact} />
+            {event.isPredicted && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 uppercase tracking-tighter">
+                Predicted
+              </span>
+            )}
           </div>
           <h3 className="text-sm font-medium text-zinc-600 dark:text-zinc-400 line-clamp-1">{event.title}</h3>
         </div>
