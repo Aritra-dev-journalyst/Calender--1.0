@@ -20,6 +20,7 @@ interface EconomicEvent {
   usualEffect: string | null;
   frequency: string | null;
   status: string;
+  isPredicted: boolean | null;
 }
 
 import { DescriptionSection } from './DescriptionSection';
@@ -36,6 +37,9 @@ export const EconomicCalendarWidget: React.FC = () => {
     date: format(new Date(), 'yyyy-MM-dd'),
   });
 
+  const [currencyFilter, setCurrencyFilter] = useState<string>('All');
+  const [impactFilter, setImpactFilter] = useState<string>('All');
+
   const { mode: viewMode, date: selectedDate } = filter;
 
   const setModeAndDate = (mode: 'day' | 'month' | 'year', date: string) => {
@@ -50,25 +54,25 @@ export const EconomicCalendarWidget: React.FC = () => {
         let end: Date;
 
         if (viewMode === 'year') {
-          // date is "2026"
           const year = parseInt(selectedDate, 10);
           if (isNaN(year)) return;
-          start = new Date(Date.UTC(year, 0, 1));
-          end = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
+          // Use local midnight to respect user's timezone
+          start = new Date(year, 0, 1, 0, 0, 0, 0);
+          end = new Date(year, 11, 31, 23, 59, 59, 999);
         } else if (viewMode === 'month') {
-          // date is "2026-05"
           const parts = selectedDate.split('-').map(Number);
           if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
           const [year, month] = parts;
-          start = new Date(Date.UTC(year, month - 1, 1));
-          end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+          // Local midnight start/end for the month
+          start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+          end = new Date(year, month, 0, 23, 59, 59, 999); // day 0 = last day of month
         } else {
-          // date is "2026-05-14"
           const parts = selectedDate.split('-').map(Number);
           if (parts.length < 3 || parts.some(isNaN)) return;
           const [year, month, day] = parts;
-          start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-          end = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+          // Local midnight — correctly handles IST and other timezone offsets
+          start = new Date(year, month - 1, day, 0, 0, 0, 0);
+          end = new Date(year, month - 1, day, 23, 59, 59, 999);
         }
 
         const url = `/api/calendar?start=${start.toISOString()}&end=${end.toISOString()}`;
@@ -89,7 +93,6 @@ export const EconomicCalendarWidget: React.FC = () => {
   }, [filter]);
 
   const toggleExpand = (id: string, eventData: EconomicEvent) => {
-    console.log('Expanding event:', eventData);
     setExpandedId(expandedId === id ? null : id);
   };
 
@@ -98,6 +101,24 @@ export const EconomicCalendarWidget: React.FC = () => {
     d.setDate(d.getDate() + daysOffset);
     setModeAndDate('day', format(d, 'yyyy-MM-dd'));
   };
+
+  const filteredEvents = events.filter(event => {
+    const matchesCurrency = currencyFilter === 'All' || 
+      event.currency?.trim().toUpperCase() === currencyFilter.trim().toUpperCase();
+    
+    const matchesImpact = impactFilter === 'All' || 
+      event.impact?.trim().toLowerCase() === impactFilter.trim().toLowerCase();
+    
+    return matchesCurrency && matchesImpact;
+  });
+
+  // Dynamically generate currency list based on actual data
+  const dynamicCurrencies = Array.from(new Set(events.map(e => e.currency?.trim().toUpperCase())))
+    .filter(Boolean)
+    .sort();
+  const currencies = ['All', ...dynamicCurrencies];
+  
+  const impacts = ['All', 'High', 'Medium', 'Low'];
 
   // Generate years from 2007 to 2026
   const years = Array.from({ length: 2026 - 2007 + 1 }, (_, i) => (2026 - i).toString());
@@ -163,6 +184,28 @@ export const EconomicCalendarWidget: React.FC = () => {
                  </select>
                )}
              </div>
+
+             <div className="flex flex-col">
+               <label className="text-[10px] font-bold uppercase text-zinc-400 mb-1">Currency</label>
+               <select 
+                 value={currencyFilter}
+                 onChange={(e) => setCurrencyFilter(e.target.value)}
+                 className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold min-h-[38px]"
+               >
+                 {currencies.map(c => <option key={c} value={c}>{c}</option>)}
+               </select>
+             </div>
+
+             <div className="flex flex-col">
+               <label className="text-[10px] font-bold uppercase text-zinc-400 mb-1">Impact</label>
+               <select 
+                 value={impactFilter}
+                 onChange={(e) => setImpactFilter(e.target.value)}
+                 className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold min-h-[38px]"
+               >
+                 {impacts.map(i => <option key={i} value={i}>{i}</option>)}
+               </select>
+             </div>
            </div>
 
            {/* Quick Selects */}
@@ -195,56 +238,77 @@ export const EconomicCalendarWidget: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
-              {events.length === 0 ? (
+              {filteredEvents.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
-                      <span className="text-4xl">📭</span>
+                      <span className="text-4xl">{events.length === 0 ? '📭' : '🔍'}</span>
                       <p className="text-zinc-600 dark:text-zinc-400 font-medium">
-                        No events found for{' '}
-                        {(() => {
-                          const parts = selectedDate.split('-').map(Number);
-                          try {
-                            if (viewMode === 'day') {
-                              const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
-                              return format(d, 'MMMM d, yyyy');
-                            }
-                            if (viewMode === 'month') {
-                              const d = new Date(Date.UTC(parts[0], parts[1] - 1, 1));
-                              return format(d, 'MMMM yyyy');
-                            }
-                            return selectedDate;
-                          } catch (e) {
-                            return selectedDate;
-                          }
-                        })()}
+                        {events.length === 0 ? (
+                          <>
+                            No events found for{' '}
+                            {(() => {
+                              const parts = selectedDate.split('-').map(Number);
+                              try {
+                                if (viewMode === 'day') {
+                                  const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+                                  return format(d, 'MMMM d, yyyy');
+                                }
+                                if (viewMode === 'month') {
+                                  const d = new Date(Date.UTC(parts[0], parts[1] - 1, 1));
+                                  return format(d, 'MMMM yyyy');
+                                }
+                                return selectedDate;
+                              } catch (e) {
+                                return selectedDate;
+                              }
+                            })()}
+                          </>
+                        ) : (
+                          'No events match your current filters'
+                        )}
                       </p>
-                      <p className="text-xs text-zinc-400 dark:text-zinc-600 max-w-sm leading-relaxed">
-                        Historical data for past dates may not be imported yet. You can fill this "data gap" by running the following commands in your terminal:
-                      </p>
-                      <div className="flex flex-col gap-3 w-full max-w-sm mt-2">
-                        <div className="space-y-1">
-                          <code className="bg-zinc-100 dark:bg-zinc-800 px-2 py-1.5 rounded-lg font-mono text-[10px] text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 block">
-                            npm run calendar:gap
-                          </code>
-                          <p className="text-[10px] text-zinc-400 pl-1">
-                            • Imports core event data (Time, Currency, Impact, Actuals)
+                      
+                      {events.length === 0 ? (
+                        <>
+                          <p className="text-xs text-zinc-400 dark:text-zinc-600 max-w-sm leading-relaxed">
+                            Historical data for past dates may not be imported yet. You can fill this "data gap" by running the following commands in your terminal:
                           </p>
-                        </div>
-                        <div className="space-y-1">
-                          <code className="bg-zinc-100 dark:bg-zinc-800 px-2 py-1.5 rounded-lg font-mono text-[10px] text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 block">
-                            npm run calendar:backfill-descriptions
-                          </code>
-                          <p className="text-[10px] text-zinc-400 pl-1">
-                            • Fetches event descriptions and "Why Traders Care" analysis
-                          </p>
-                        </div>
-                      </div>
+                          <div className="flex flex-col gap-3 w-full max-w-sm mt-2 text-left">
+                            <div className="space-y-1">
+                              <code className="bg-zinc-100 dark:bg-zinc-800 px-2 py-1.5 rounded-lg font-mono text-[10px] text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 block">
+                                npm run calendar:gap
+                              </code>
+                              <p className="text-[10px] text-zinc-400 pl-1">
+                                • Imports core event data (Time, Currency, Impact, Actuals)
+                              </p>
+                            </div>
+                            <div className="space-y-1">
+                              <code className="bg-zinc-100 dark:bg-zinc-800 px-2 py-1.5 rounded-lg font-mono text-[10px] text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 block">
+                                npm run calendar:backfill-descriptions
+                              </code>
+                              <p className="text-[10px] text-zinc-400 pl-1">
+                                • Fetches event descriptions and "Why Traders Care" analysis
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            setCurrencyFilter('All');
+                            setImpactFilter('All');
+                          }}
+                          className="mt-2 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold rounded-lg hover:opacity-90 transition-opacity"
+                        >
+                          Clear All Filters
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ) : (
-                events.map((event) => (
+                filteredEvents.map((event) => (
                   <React.Fragment key={event.id}>
                     <tr
                       onClick={() => toggleExpand(event.id, event)}
@@ -272,7 +336,7 @@ export const EconomicCalendarWidget: React.FC = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <EventBadge impact={event.impact} />
-                          {event.status === 'predicted' && (
+                          {event.isPredicted && (
                             <EventBadge impact="predicted" />
                           )}
                         </div>
