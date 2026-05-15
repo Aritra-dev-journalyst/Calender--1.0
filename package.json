@@ -11,6 +11,7 @@
     "calendar:gap": "npx tsx --env-file=.env src/scripts/seedMissingMonths.ts",
     "calendar:sync": "npx tsx --env-file=.env src/scripts/runForwardSync.ts",
     "calendar:backfill-descriptions": "npx tsx --env-file=.env src/scripts/backfillDescriptions.ts",
+    "calendar:refresh": "pnpm run calendar:sync && pnpm run calendar:backfill-descriptions",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",

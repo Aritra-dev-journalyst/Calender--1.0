@@ -17,7 +17,6 @@ export async function GET(request: Request) {
   const end = endParam ? new Date(endParam) : endOfDay(addDays(start, 8));
 
   try {
-    console.log(`[API] Fetching calendar events from ${start.toISOString()} to ${end.toISOString()}`);
 
     const events = await db.select()
       .from(economicEvents)
@@ -29,40 +28,46 @@ export async function GET(request: Request) {
       )
       .orderBy(asc(economicEvents.startsAtUtc));
 
-    // 3. Lazy Real Detail Fetching (Bypass demo data)
+    // Lazy Real Detail Fetching — runs when nextRelease is missing
     const enriched = await Promise.all(events.map(async (event) => {
-      // If we already have a description or detail, return it
-      if (event.description || event.detail) {
+      // Skip lazy fetch if we already have all fields populated
+      if ((event.description || event.detail) && event.nextRelease) {
         return event;
       }
 
-      // If we have an FF Event ID, fetch the real detail live
+      // If we have an FF Event ID, fetch missing fields
       if (event.ffEventId) {
         try {
-          console.log(`[API] Lazy fetching real details for "${event.title}" (${event.ffEventId})`);
           const realDetail = await fetchEventDetail(event.ffEventId);
 
           if (realDetail) {
-            // Update the DB asynchronously so next time it's instant
+            // Build update — only overwrite null fields (preserve existing data)
+            const updateFields: Record<string, unknown> = {
+              nextRelease: realDetail.nextRelease,
+              updatedAt: new Date(),
+            };
+            if (!event.description && !event.detail) {
+              updateFields.description = realDetail.description;
+              updateFields.whyItMatters = realDetail.whyItMatters;
+              updateFields.usualEffect = realDetail.usualEffect;
+              updateFields.frequency = realDetail.frequency;
+            }
+
+            // Save to DB asynchronously so next request is instant
             db.update(economicEvents)
-              .set({
-                description: realDetail.description,
-                whyItMatters: realDetail.whyItMatters,
-                usualEffect: realDetail.usualEffect,
-                frequency: realDetail.frequency,
-                nextRelease: realDetail.nextRelease,
-                updatedAt: new Date(),
-              })
+              .set(updateFields)
               .where(eq(economicEvents.id, event.id))
               .execute();
 
             return {
               ...event,
-              description: realDetail.description,
-              whyItMatters: realDetail.whyItMatters,
-              usualEffect: realDetail.usualEffect,
-              frequency: realDetail.frequency,
               nextRelease: realDetail.nextRelease,
+              ...((!event.description && !event.detail) ? {
+                description: realDetail.description,
+                whyItMatters: realDetail.whyItMatters,
+                usualEffect: realDetail.usualEffect,
+                frequency: realDetail.frequency,
+              } : {}),
             };
           }
         } catch (err) {

@@ -4,7 +4,8 @@ import { UpcomingEventsCard } from '@/components/calendar/UpcomingEventsCard';
 import { NearbyEventsPanel } from '@/components/calendar/NearbyEventsPanel';
 import { db } from '@/db';
 import { economicEvents } from '@/modules/economic-calendar/db/economicEvents.schema';
-import { and, gte, asc } from 'drizzle-orm';
+import { and, gte, lte, asc, isNotNull } from 'drizzle-orm';
+import { calculateDailySentiment } from '@/modules/economic-calendar/services/calculateSentiment';
 
 export default async function Home() {
   // Fetch a few upcoming events for the sidebar cards/panels
@@ -24,6 +25,32 @@ export default async function Home() {
     ...e,
     startsAtUtc: e.startsAtUtc?.toISOString() || ''
   }));
+
+  // Fetch today's completed events to calculate sentiment
+  const startOfToday = new Date(now);
+  startOfToday.setUTCHours(0, 0, 0, 0);
+  
+  const endOfToday = new Date(now);
+  endOfToday.setUTCHours(23, 59, 59, 999);
+
+  const todaysCompletedEvents = await db.select()
+    .from(economicEvents)
+    .where(
+      and(
+        gte(economicEvents.startsAtUtc, startOfToday),
+        lte(economicEvents.startsAtUtc, endOfToday),
+        isNotNull(economicEvents.actual)
+      )
+    );
+
+  const sentiment = calculateDailySentiment(todaysCompletedEvents);
+
+  let sColor = { text: 'text-zinc-500', textDark: 'dark:text-zinc-400', fill: 'bg-zinc-500', bgFade: 'bg-zinc-500/10', borderFade: 'border-zinc-500/10' };
+  if (sentiment.label === 'BULLISH') sColor = { text: 'text-emerald-500', textDark: 'dark:text-emerald-400', fill: 'bg-emerald-500', bgFade: 'bg-emerald-500/10', borderFade: 'border-emerald-500/10' };
+  if (sentiment.label === 'BEARISH') sColor = { text: 'text-red-500', textDark: 'dark:text-red-400', fill: 'bg-red-500', bgFade: 'bg-red-500/10', borderFade: 'border-red-500/10' };
+
+  const dashOffset = 251.2 * (1 - sentiment.score / 100);
+
 
   const nextMajorEvent = upcomingEvents[0];
   const nearbyEvents = upcomingEvents.slice(1, 4);
@@ -71,21 +98,29 @@ export default async function Home() {
 
             {/* Quick Stats Card: Premium Sentiment Gauge */}
             <div className="p-8 rounded-3xl bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-2xl shadow-zinc-200/50 dark:shadow-none border border-zinc-200 dark:border-zinc-800 relative overflow-hidden group">
-               <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full -mr-20 -mt-20 blur-3xl transition-opacity opacity-50 group-hover:opacity-100" />
+               <div className={`absolute top-0 right-0 w-48 h-48 ${sColor.bgFade} rounded-full -mr-20 -mt-20 blur-3xl transition-opacity opacity-50 group-hover:opacity-100`} />
                
                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-8">Daily Sentiment</h4>
                
                <div className="flex items-center justify-between gap-6">
                   <div className="space-y-3">
-                    <div className="text-5xl font-black tracking-tighter text-emerald-500 leading-[0.9] py-1">
-                       BULLISH
+                    <div className={`text-5xl font-black tracking-tighter ${sColor.text} leading-[0.9] py-1`}>
+                       {sentiment.label}
                     </div>
-                    <div className="flex items-center gap-2 py-1.5 px-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10 w-fit">
-                       <span className="relative flex h-2 w-2">
-                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    <div className={`flex items-center gap-2 py-1.5 px-3 ${sColor.bgFade} rounded-xl border ${sColor.borderFade} w-fit`}>
+                       {sentiment.totalIndicators > 0 ? (
+                         <span className="relative flex h-2 w-2">
+                           <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${sColor.fill} opacity-75`}></span>
+                           <span className={`relative inline-flex rounded-full h-2 w-2 ${sColor.fill}`}></span>
+                         </span>
+                       ) : (
+                         <span className="relative flex h-2 w-2">
+                           <span className={`relative inline-flex rounded-full h-2 w-2 bg-zinc-400`}></span>
+                         </span>
+                       )}
+                       <span className={`text-[10px] font-bold ${sColor.text} ${sColor.textDark} uppercase tracking-widest`}>
+                         {sentiment.totalIndicators} Indicators
                        </span>
-                       <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">12 Indicators</span>
                     </div>
                   </div>
 
@@ -111,14 +146,14 @@ export default async function Home() {
                         strokeWidth="10"
                         fill="transparent"
                         strokeDasharray="251.2"
-                        strokeDashoffset="62.8" /* 75% strength */
+                        strokeDashoffset={dashOffset}
                         strokeLinecap="round"
-                        className="text-emerald-500 transition-all duration-1000 ease-out shadow-lg"
+                        className={`${sColor.text} transition-all duration-1000 ease-out shadow-lg`}
                       />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                       <span className="text-xl font-black text-zinc-900 dark:text-zinc-100 leading-none">75%</span>
-                       <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter mt-1">Strength</span>
+                       <span className="text-xl font-black text-zinc-900 dark:text-zinc-100 leading-none">{sentiment.score}%</span>
+                       <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-tighter mt-1">Bullish</span>
                     </div>
                   </div>
                </div>
@@ -126,23 +161,28 @@ export default async function Home() {
                <div className="mt-8 pt-8 border-t border-zinc-100 dark:border-zinc-800">
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Sentiment Scale</span>
-                    <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Bullish Bias</span>
+                    <span className={`text-[10px] font-bold ${sColor.text} uppercase tracking-widest`}>
+                       {sentiment.label === 'BULLISH' ? 'Bullish Bias' : sentiment.label === 'BEARISH' ? 'Bearish Bias' : 'Neutral Bias'}
+                    </span>
                   </div>
                   <div className="grid grid-cols-3 gap-1 h-1.5 mb-2">
+                    {/* Bearish Segment */}
                     <div className="rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                       <div className="h-full w-0 bg-red-500/50" />
+                       <div className={`h-full w-full ${sentiment.label === 'BEARISH' ? 'bg-red-500' : 'bg-transparent'}`} />
                     </div>
+                    {/* Neutral Segment */}
                     <div className="rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                       <div className="h-full w-0 bg-amber-500/50" />
+                       <div className={`h-full w-full ${sentiment.label === 'NEUTRAL' ? 'bg-zinc-500' : 'bg-transparent'}`} />
                     </div>
-                    <div className="rounded-full bg-emerald-500/20 overflow-hidden">
-                       <div className="h-full w-full bg-emerald-500" />
+                    {/* Bullish Segment */}
+                    <div className="rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                       <div className={`h-full w-full ${sentiment.label === 'BULLISH' ? 'bg-emerald-500' : 'bg-transparent'}`} />
                     </div>
                   </div>
                   <div className="flex justify-between text-[8px] font-bold uppercase tracking-tighter text-zinc-400">
-                    <span>Bearish</span>
-                    <span>Neutral</span>
-                    <span className="text-emerald-500">Bullish</span>
+                    <span className={sentiment.label === 'BEARISH' ? 'text-red-500' : ''}>Bearish</span>
+                    <span className={sentiment.label === 'NEUTRAL' ? 'text-zinc-500' : ''}>Neutral</span>
+                    <span className={sentiment.label === 'BULLISH' ? 'text-emerald-500' : ''}>Bullish</span>
                   </div>
                </div>
             </div>
